@@ -323,7 +323,7 @@ static int request_msix_vectors(struct kvm_ivshmem_device *ivs_info, int nvector
 		n = pci_irq_vector(ivs_info->dev, i);
 		err = request_irq(n, kvm_ivshmem_interrupt, IRQF_SHARED,
 				  ivs_info->msix_names[i], ivs_info);
-		enable_irq(n);
+		//enable_irq(n);
 		// err = pci_enable_msi(ivs_info->dev);
 		// printk("KVM_IVSHMEM: pci_enable_msi: %d\n", err);
 
@@ -432,7 +432,7 @@ static void kvm_ivshmem_remove_device(struct pci_dev* pdev)
 
 	printk(KERN_INFO "KVM_IVSHMEM: Unregister kvm_ivshmem device.\n");
 	disable_irq(pdev->irq);
-	free_irq(pdev->irq,&kvm_ivshmem_dev);
+	//free_irq(pdev->irq,&kvm_ivshmem_dev);
 	pci_iounmap(pdev, kvm_ivshmem_dev.regs);
 	pci_iounmap(pdev, kvm_ivshmem_dev.base_addr);
 	pci_release_regions(pdev);
