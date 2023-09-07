@@ -13,6 +13,9 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/proc_fs.h>
+#include <linux/fcntl.h>
+#include <linux/file.h>
+#include <linux/uio.h>
 #include <asm/uaccess.h>
 #include <linux/interrupt.h>
 #include <linux/mutex.h>
@@ -147,7 +150,7 @@ static long kvm_ivshmem_ioctl(struct file * filp,
 		case read_ivposn:
 			msg = readl( kvm_ivshmem_dev.regs + IVPosition);
 			KVM_IVSHMEM_DPRINTK("my posn is %d", msg);
-			rv = copy_to_user(arg, &msg, sizeof(msg));
+			rv = copy_to_user((void __user *)arg, &msg, sizeof(msg));
 			break;
 		case sema_irq:
 			// 2 is the actual code, but we use 7 from the user
@@ -157,7 +160,7 @@ static long kvm_ivshmem_ioctl(struct file * filp,
 			writel(msg, kvm_ivshmem_dev.regs + Doorbell);
 			break;
 		default:
-			KVM_IVSHMEM_DPRINTK("bad ioctl (%ld)", cmd);
+			KVM_IVSHMEM_DPRINTK("bad ioctl (%d)", cmd);
 	}
 #endif
 
@@ -199,9 +202,10 @@ static loff_t kvm_ivshmem_lseek(struct file * filp, loff_t offset, int origin)
 	loff_t retval = -1;
 
 	switch (origin) {
-		case 1:
+		case SEEK_CUR:
 			offset += filp->f_pos;
-		case 0:
+			__attribute__((__fallthrough__));
+		case SEEK_SET:
 			retval = offset;
 			if (offset > kvm_ivshmem_dev.ioaddr_size) {
 				offset = kvm_ivshmem_dev.ioaddr_size;
@@ -360,7 +364,7 @@ static int kvm_ivshmem_probe_device (struct pci_dev *pdev,
 	kvm_ivshmem_dev.ioaddr_size = pci_resource_len(pdev, 2);
 
 	kvm_ivshmem_dev.base_addr = pci_iomap(pdev, 2, 0);
-	printk(KERN_INFO "KVM_IVSHMEM: iomap base = 0x%p ",
+	printk(KERN_INFO "KVM_IVSHMEM: iomap base = 0x%ld ",
 							(unsigned long) kvm_ivshmem_dev.base_addr);
 
 	if (!kvm_ivshmem_dev.base_addr) {
