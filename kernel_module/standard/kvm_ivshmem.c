@@ -118,7 +118,6 @@ static long kvm_ivshmem_ioctl(struct file * filp,
 	uint32_t msg;
 
 	KVM_IVSHMEM_DPRINTK("args is %ld", arg);
-#if 1
 	switch (cmd) {
 		case set_sema:
 			KVM_IVSHMEM_DPRINTK("initialize semaphore");
@@ -162,8 +161,7 @@ static long kvm_ivshmem_ioctl(struct file * filp,
 		default:
 			KVM_IVSHMEM_DPRINTK("bad ioctl (%d)", cmd);
 	}
-#endif
-
+	
 	return 0;
 }
 
@@ -285,7 +283,6 @@ static int request_msix_vectors(struct kvm_ivshmem_device *ivs_info, int nvector
 	printk(KERN_INFO "KVM_IVSHMEM: devname is %s", name);
 	ivs_info->nvectors = nvectors;
 
-
 	ivs_info->msix_entries = kmalloc(nvectors * sizeof *ivs_info->msix_entries,
 					   GFP_KERNEL);
 	ivs_info->msix_names = kmalloc(nvectors * sizeof *ivs_info->msix_names,
@@ -293,22 +290,6 @@ static int request_msix_vectors(struct kvm_ivshmem_device *ivs_info, int nvector
 
 	for (i = 0; i < nvectors; i++)
 		ivs_info->msix_entries[i].entry = i;
-#if 0
-	err = pci_enable_msix_exact(ivs_info->dev, ivs_info->msix_entries,
-					ivs_info->nvectors);
-	if (err > 0) {
-		printk(KERN_INFO "KVM_IVSHMEM: no MSI. Back to INTx.");
-		return -ENOSPC;
-	}
-
-	if (err) {
-		printk(KERN_INFO "KVM_IVSHMEM: some error below zero %d", err);
-		return err;
-	}
-#else
-#endif
-	// err = pci_enable_msix_exact(ivs_info->dev, ivs_info->msix_entries, ivs_info->nvectors);
-	// KVM_IVSHMEM_DPRINTK("pci_enable_msix_exact: %d", err);
 
 	for (i = 0; i < nvectors; i++) {
 		int n;
@@ -327,8 +308,6 @@ static int request_msix_vectors(struct kvm_ivshmem_device *ivs_info, int nvector
 		err = request_irq(n, kvm_ivshmem_interrupt, IRQF_SHARED,
 				  ivs_info->msix_names[i], ivs_info);
 
-		pci_set_master(ivs_info->dev);
-
 		if (err) {
 			printk(KERN_INFO "KVM_IVSHMEM: couldn't allocate irq for msi-x entry %d with vector %d", i, n);
 			return -ENOSPC;
@@ -336,6 +315,8 @@ static int request_msix_vectors(struct kvm_ivshmem_device *ivs_info, int nvector
 			printk(KERN_INFO "KVM_IVSHMEM: allocated irq #%d", n);
 		}
 	}
+
+	pci_set_master(ivs_info->dev);
 
 	return 0;
 }
@@ -364,8 +345,8 @@ static int kvm_ivshmem_probe_device (struct pci_dev *pdev,
 	kvm_ivshmem_dev.ioaddr_size = pci_resource_len(pdev, 2);
 
 	kvm_ivshmem_dev.base_addr = pci_iomap(pdev, 2, 0);
-	printk(KERN_INFO "KVM_IVSHMEM: iomap base = 0x%ld ",
-							(unsigned long) kvm_ivshmem_dev.base_addr);
+	printk(KERN_INFO "KVM_IVSHMEM: iomap base = 0x%p",
+							kvm_ivshmem_dev.base_addr);
 
 	if (!kvm_ivshmem_dev.base_addr) {
 		printk(KERN_ERR "KVM_IVSHMEM: cannot iomap region of size %d",
