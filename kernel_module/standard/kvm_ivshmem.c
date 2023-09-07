@@ -420,10 +420,15 @@ pci_disable:
 
 static void kvm_ivshmem_remove_device(struct pci_dev* pdev)
 {
+	int i, n;
 
 	printk(KERN_INFO "KVM_IVSHMEM: Unregister kvm_ivshmem device.");
-	//disable_irq(pdev->irq);
-	free_irq(pdev->irq,&kvm_ivshmem_dev);
+	for (i = 0; i < VECTORS_COUNT; i++) {
+	    n = pci_irq_vector(pdev, i);
+	    KVM_IVSHMEM_DPRINTK("Freeing irq# %d", n);
+	    disable_irq(n);
+	    free_irq(n, &kvm_ivshmem_dev);
+	}
 	pci_free_irq_vectors(pdev);
 	pci_iounmap(pdev, kvm_ivshmem_dev.regs);
 	pci_iounmap(pdev, kvm_ivshmem_dev.base_addr);
