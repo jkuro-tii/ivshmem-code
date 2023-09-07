@@ -1,5 +1,4 @@
-/*
- * drivers/char/kvm_ivshmem.c - driver for KVM Inter-VM shared memory PCI device
+/* drivers/char/kvm_ivshmem.c - driver for KVM Inter-VM shared memory PCI device
  *
  * Copyright 2009 Cam Macdonell <cam@cs.ualberta.ca>
  *
@@ -312,11 +311,6 @@ static int request_msix_vectors(struct kvm_ivshmem_device *ivs_info, int nvector
 
 		snprintf(ivs_info->msix_names[i], sizeof *ivs_info->msix_names,
 		 "%s-config", name);
-#if 0
-		err = request_irq(ivs_info->msix_entries[i].vector,
-				  kvm_ivshmem_interrupt, IRQF_SHARED,
-				  ivs_info->msix_names[i], ivs_info);
-#else
 
 		n = pci_alloc_irq_vectors(ivs_info->dev, VECTORS_COUNT, VECTORS_COUNT, PCI_IRQ_MSIX);
 		if (n < 0) {
@@ -329,12 +323,8 @@ static int request_msix_vectors(struct kvm_ivshmem_device *ivs_info, int nvector
 		err = request_irq(n, kvm_ivshmem_interrupt, IRQF_SHARED,
 				  ivs_info->msix_names[i], ivs_info);
 
-		/* TODO: delete??? */
-/*
-		pci_intx(ivs_info->dev, 1);
 		pci_set_master(ivs_info->dev);
-*/
-#endif
+
 		if (err) {
 			printk(KERN_INFO "KVM_IVSHMEM: couldn't allocate irq for msi-x entry %d with vector %d", i, n);
 			return -ENOSPC;
@@ -432,8 +422,9 @@ static void kvm_ivshmem_remove_device(struct pci_dev* pdev)
 {
 
 	printk(KERN_INFO "KVM_IVSHMEM: Unregister kvm_ivshmem device.");
-	disable_irq(pdev->irq);
-	//free_irq(pdev->irq,&kvm_ivshmem_dev);
+	//disable_irq(pdev->irq);
+	free_irq(pdev->irq,&kvm_ivshmem_dev);
+	pci_free_irq_vectors(pdev);
 	pci_iounmap(pdev, kvm_ivshmem_dev.regs);
 	pci_iounmap(pdev, kvm_ivshmem_dev.base_addr);
 	pci_release_regions(pdev);
