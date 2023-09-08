@@ -71,8 +71,6 @@ static wait_queue_head_t wait_queue;
 
 static kvm_ivshmem_device kvm_ivshmem_dev;
 
-static int device_major_nr;
-
 static long kvm_ivshmem_ioctl(struct file *, unsigned int, unsigned long);
 static int kvm_ivshmem_mmap(struct file *, struct vm_area_struct *);
 static int kvm_ivshmem_open(struct inode *, struct file *);
@@ -421,7 +419,6 @@ static void kvm_ivshmem_remove_device(struct pci_dev* pdev)
 {
 	int i, n;
 
-	misc_deregister(&kvm_ivshmem_misc_dev);
 	printk(KERN_INFO "KVM_IVSHMEM: Unregister kvm_ivshmem device.");
 	for (i = 0; i < VECTORS_COUNT; i++) {
 	    n = pci_irq_vector(pdev, i);
@@ -440,7 +437,7 @@ static void kvm_ivshmem_remove_device(struct pci_dev* pdev)
 static void __exit kvm_ivshmem_cleanup_module (void)
 {
 	pci_unregister_driver (&kvm_ivshmem_pci_driver);
-	unregister_chrdev(device_major_nr, "kvm_ivshmem");
+	misc_deregister(&kvm_ivshmem_misc_dev);
 }
 
 static int __init kvm_ivshmem_init_module (void)
@@ -449,15 +446,12 @@ static int __init kvm_ivshmem_init_module (void)
 	int err = -ENOMEM;
 
 	/* Register device node ops. */
-//	err = register_chrdev(0, "kvm_ivshmem", &kvm_ivshmem_ops);
 	err = misc_register(&kvm_ivshmem_misc_dev);
 	if (err < 0) {
 		printk(KERN_ERR "KVM_IVSHMEM: Unable to register kvm_ivshmem_misc device");
 		return err;
 	}
-	device_major_nr = err;
-	KVM_IVSHMEM_DPRINTK("Major device number is: %d", device_major_nr);
-	
+	KVM_IVSHMEM_DPRINTK("Registered the %s device ", kvm_ivshmem_misc_dev.name);
 	
 	kvm_ivshmem_dev.enabled=FALSE;
 
