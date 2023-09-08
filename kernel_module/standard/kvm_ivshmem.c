@@ -22,8 +22,6 @@
 #include <linux/pci.h>
 #include <linux/miscdevice.h>
 
-#define TRUE 1
-#define FALSE 0
 #define KVM_IVSHMEM_DEVICE_MINOR_NUM 0
 #define VECTORS_COUNT (1)
 
@@ -60,6 +58,8 @@ typedef struct kvm_ivshmem_device {
 	char (*msix_names)[256];
 	struct msix_entry *msix_entries;
 	int nvectors;
+	
+	bool opened;
 } kvm_ivshmem_device;
 
 static int event_num;
@@ -76,7 +76,7 @@ static ssize_t kvm_ivshmem_read(struct file *, char *, size_t, loff_t *);
 static ssize_t kvm_ivshmem_write(struct file *, const char *, size_t, loff_t *);
 static loff_t kvm_ivshmem_lseek(struct file * filp, loff_t offset, int origin);
 
-enum ivshmem_ioctl { set_sema, down_sema, empty, wait_event, wait_event_irq, read_ivposn, read_livelist, sema_irq };
+enum ivshmem_ioctl { set_sema, down_sema, empty, wait_event, wait_event_irq, read_ivposn, read_livelist, sema_irq, doorbell };
 
 static const struct file_operations kvm_ivshmem_ops = {
 	.owner   = THIS_MODULE,
@@ -162,6 +162,9 @@ static long kvm_ivshmem_ioctl(struct file * filp,
 			KVM_IVSHMEM_DPRINTK("ringing sema doorbell");
 			writel(msg, kvm_ivshmem_dev.regs + Doorbell);
 			break;
+		case doorbell: // 8
+			writel(arg, kvm_ivshmem_dev.regs + Doorbell);
+			break;
 		default:
 			KVM_IVSHMEM_DPRINTK("bad ioctl (0x%08x)", cmd);
 	}
@@ -176,6 +179,7 @@ static ssize_t kvm_ivshmem_read(struct file * filp, char * buffer, size_t len,
 	int bytes_read = 0;
 	unsigned long offset;
 
+//	KVM_IVSHMEM_DPRINTK("kvm_ivshmem_read");
 	offset = *poffset;
 
 	if (!kvm_ivshmem_dev.base_addr) {
@@ -458,7 +462,6 @@ static int __init kvm_ivshmem_init_module (void)
 	return 0;
 
 error:
-//	unregister_chrdev(device_major_nr, "kvm_ivshmem");
 	misc_deregister(&kvm_ivshmem_misc_dev);
 	return err;
 }
@@ -466,15 +469,15 @@ error:
 
 static int kvm_ivshmem_open(struct inode * inode, struct file * filp)
 {
-
-   printk(KERN_INFO "KVM_IVSHMEM: Opening kvm_ivshmem device");
-
+    printk(KERN_INFO "KVM_IVSHMEM: Opening kvm_ivshmem device");
+/*
    if (MINOR(inode->i_rdev) != KVM_IVSHMEM_DEVICE_MINOR_NUM) {
 	  printk(KERN_INFO "KVM_IVSHMEM: minor number is %d", KVM_IVSHMEM_DEVICE_MINOR_NUM);
 	  return -ENODEV;
-   }
+   }*/
+    KVM_IVSHMEM_DPRINTK("Open OK");
 
-   return 0;
+    return 0;
 }
 
 static int kvm_ivshmem_release(struct inode * inode, struct file * filp)
