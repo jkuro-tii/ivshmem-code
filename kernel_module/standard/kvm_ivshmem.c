@@ -60,9 +60,6 @@ typedef struct kvm_ivshmem_device {
 	char (*msix_names)[256];
 	struct msix_entry *msix_entries;
 	int nvectors;
-
-	bool		 enabled;
-
 } kvm_ivshmem_device;
 
 static int event_num;
@@ -452,8 +449,6 @@ static int __init kvm_ivshmem_init_module (void)
 		return err;
 	}
 	KVM_IVSHMEM_DPRINTK("Registered the %s device ", kvm_ivshmem_misc_dev.name);
-	
-	kvm_ivshmem_dev.enabled=FALSE;
 
 	err = pci_register_driver(&kvm_ivshmem_pci_driver);
 	if (err < 0) {
