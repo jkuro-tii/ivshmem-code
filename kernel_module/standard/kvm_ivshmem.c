@@ -117,49 +117,49 @@ static long kvm_ivshmem_ioctl(struct file * filp,
 	int rv;
 	uint32_t msg;
 
-	KVM_IVSHMEM_DPRINTK("args is %ld", arg);
+	KVM_IVSHMEM_DPRINTK("args is 0x%lx", arg);
 	switch (cmd) {
 		case set_sema:
 			KVM_IVSHMEM_DPRINTK("initialize semaphore");
-			KVM_IVSHMEM_DPRINTK("args is %ld", arg);
+			KVM_IVSHMEM_DPRINTK("args is 0x%lx", arg);
 			sema_init(&sema, arg);
 			break;
 		case down_sema:
-			KVM_IVSHMEM_DPRINTK("sleeping on semaphore (cmd = %d)", cmd);
+			KVM_IVSHMEM_DPRINTK("sleeping on semaphore (cmd = 0x%x)", cmd);
 			rv = down_interruptible(&sema);
 			KVM_IVSHMEM_DPRINTK("waking");
 			break;
 		case empty:
 			msg = ((arg & 0xff) << 8) + (cmd & 0xff);
-			KVM_IVSHMEM_DPRINTK("args is %ld", arg);
+			KVM_IVSHMEM_DPRINTK("args is 0x%lx", arg);
 			KVM_IVSHMEM_DPRINTK("ringing sema doorbell");
 			writel(msg, kvm_ivshmem_dev.regs + Doorbell);
 			break;
 		case wait_event:
-			KVM_IVSHMEM_DPRINTK("sleeping on event (cmd = %d)", cmd);
+			KVM_IVSHMEM_DPRINTK("sleeping on event (cmd = 0x%08x)", cmd);
 			wait_event_interruptible(wait_queue, (event_num == 1));
 			KVM_IVSHMEM_DPRINTK("waking");
 			event_num = 0;
 			break;
 		case wait_event_irq:
 			msg = ((arg & 0xff) << 8) + (cmd & 0xff);
-			KVM_IVSHMEM_DPRINTK("ringing wait_event doorbell on %ld (msg = %d)", arg, msg);
+			KVM_IVSHMEM_DPRINTK("ringing wait_event doorbell on 0x%lx (msg = 0x%x)", arg, msg);
 			writel(msg, kvm_ivshmem_dev.regs + Doorbell);
 			break;
 		case read_ivposn:
 			msg = readl( kvm_ivshmem_dev.regs + IVPosition);
-			KVM_IVSHMEM_DPRINTK("my posn is %d", msg);
+			KVM_IVSHMEM_DPRINTK("my posn is 0x%08x", msg);
 			rv = copy_to_user((void __user *)arg, &msg, sizeof(msg));
 			break;
 		case sema_irq:
 			// 2 is the actual code, but we use 7 from the user
 			msg = ((arg & 0xff) << 8) + (cmd & 0xff);
-			KVM_IVSHMEM_DPRINTK("args is %ld", arg);
+			KVM_IVSHMEM_DPRINTK("args is 0x%lx", arg);
 			KVM_IVSHMEM_DPRINTK("ringing sema doorbell");
 			writel(msg, kvm_ivshmem_dev.regs + Doorbell);
 			break;
 		default:
-			KVM_IVSHMEM_DPRINTK("bad ioctl (%d)", cmd);
+			KVM_IVSHMEM_DPRINTK("bad ioctl (0x%08x)", cmd);
 	}
 	
 	return 0;
@@ -249,30 +249,35 @@ static ssize_t kvm_ivshmem_write(struct file * filp, const char * buffer,
 
 static irqreturn_t kvm_ivshmem_interrupt (int irq, void *dev_instance)
 {
-	struct kvm_ivshmem_device * dev = dev_instance;
-	u32 status;
+    struct kvm_ivshmem_device * dev = dev_instance;
+    u32 status;
 
-	printk(KERN_INFO "KVM_IVSHMEM: interrupt!");
+    printk(KERN_INFO "KVM_IVSHMEM: interrupt!");
 
-	if (unlikely(dev == NULL))
-		return IRQ_NONE;
+    if (unlikely(dev == NULL)) {
+	KVM_IVSHMEM_DPRINTK("return IRQ_NONE");
+	return IRQ_NONE;
+    }
 
-	status = readl(dev->regs + IntrStatus);
-	if (!status || (status == 0xFFFFFFFF))
-		return IRQ_NONE;
+    status = readl(dev->regs + IntrStatus);
+    KVM_IVSHMEM_DPRINTK("irq ignored: status = 0x%04x", status);
+    if (!status || (status == 0xFFFFFFFF))
+	return IRQ_NONE;
 
-	/* depending on the message we wake different structures */
-	if (status == sema_irq) {
-		up(&sema);
-	} else if (status == wait_event_irq) {
-		event_num = 1;
-		wake_up_interruptible(&wait_queue);
-	}
+    /* depending on the message we wake different structures */
+    if (status == sema_irq) {
+	KVM_IVSHMEM_DPRINTK("status = sema_irq up(&sema)");
+	up(&sema);
+    } else if (status == wait_event_irq) {
+	KVM_IVSHMEM_DPRINTK("status = wait_event_irq wake_up_interruptible(&wait_queue)");
+	event_num = 1;
+	wake_up_interruptible(&wait_queue);
+    }
 
-	printk(KERN_INFO "KVM_IVSHMEM: interrupt (status = 0x%04x)",
-		   status);
+    printk(KERN_INFO "KVM_IVSHMEM: interrupt (status = 0x%04x)",
+	   status);
 
-	return IRQ_HANDLED;
+    return IRQ_HANDLED;
 }
 
 static int request_msix_vectors(struct kvm_ivshmem_device *ivs_info, int nvectors)
