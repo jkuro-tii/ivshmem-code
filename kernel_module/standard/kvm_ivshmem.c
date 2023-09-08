@@ -20,6 +20,7 @@
 #include <linux/interrupt.h>
 #include <linux/mutex.h>
 #include <linux/pci.h>
+#include <linux/miscdevice.h>
 
 #define TRUE 1
 #define FALSE 0
@@ -97,6 +98,14 @@ static struct pci_device_id kvm_ivshmem_id_table[] = {
 	{ 0x1af4, 0x1110, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 	{ 0 },
 };
+
+static struct miscdevice kvm_ivshmem_misc_dev = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "ivshmem",
+	.fops = &kvm_ivshmem_ops,
+};
+
+
 MODULE_DEVICE_TABLE (pci, kvm_ivshmem_id_table);
 
 static void kvm_ivshmem_remove_device(struct pci_dev* pdev);
@@ -412,6 +421,7 @@ static void kvm_ivshmem_remove_device(struct pci_dev* pdev)
 {
 	int i, n;
 
+	misc_deregister(&kvm_ivshmem_misc_dev);
 	printk(KERN_INFO "KVM_IVSHMEM: Unregister kvm_ivshmem device.");
 	for (i = 0; i < VECTORS_COUNT; i++) {
 	    n = pci_irq_vector(pdev, i);
@@ -439,13 +449,16 @@ static int __init kvm_ivshmem_init_module (void)
 	int err = -ENOMEM;
 
 	/* Register device node ops. */
-	err = register_chrdev(0, "kvm_ivshmem", &kvm_ivshmem_ops);
+//	err = register_chrdev(0, "kvm_ivshmem", &kvm_ivshmem_ops);
+	err = misc_register(&kvm_ivshmem_misc_dev);
 	if (err < 0) {
-		printk(KERN_ERR "KVM_IVSHMEM: Unable to register kvm_ivshmem device");
+		printk(KERN_ERR "KVM_IVSHMEM: Unable to register kvm_ivshmem_misc device");
 		return err;
 	}
 	device_major_nr = err;
 	KVM_IVSHMEM_DPRINTK("Major device number is: %d", device_major_nr);
+	
+	
 	kvm_ivshmem_dev.enabled=FALSE;
 
 	err = pci_register_driver(&kvm_ivshmem_pci_driver);
@@ -456,7 +469,8 @@ static int __init kvm_ivshmem_init_module (void)
 	return 0;
 
 error:
-	unregister_chrdev(device_major_nr, "kvm_ivshmem");
+//	unregister_chrdev(device_major_nr, "kvm_ivshmem");
+	misc_deregister(&kvm_ivshmem_misc_dev);
 	return err;
 }
 
