@@ -270,8 +270,9 @@ static irqreturn_t kvm_ivshmem_interrupt (int irq, void *dev_instance)
 	KVM_IVSHMEM_DPRINTK("return IRQ_NONE");
 	return IRQ_NONE;
     }
-
-    status = readl(dev->regs + IntrStatus);
+    // TODO: Temporary hack
+    status = wait_event_irq;
+    // status = readl(dev->regs + IntrStatus);
     KVM_IVSHMEM_DPRINTK("irq ignored: status = 0x%04x", status);
     if (!status || (status == 0xFFFFFFFF))
 	return IRQ_NONE;

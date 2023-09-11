@@ -16,6 +16,10 @@
 #include <stdlib.h>
 
 #define PMEM_DEVICE "/dev/ivshmem"
+#define IOCTL_WAIT_IRQ     (4)
+#define IOCTL_READ_IV_POSN (5)
+#define IOCTL_DOORBELL     (8)
+
 
 #define MB (1048576)
 #define START (0x11111111) 
@@ -31,9 +35,12 @@ long test_mem_size = 0;
 static int memtest(unsigned int data, int verify);
 clock_t cpu_test_time_start;
 double real_time_start_msec;
+unsigned int vm_id = 0;
 
 struct
 {
+  volatile int iv_server;
+  volatile int iv_client;
   volatile int ready;
   volatile int start;
   volatile int data;
@@ -97,6 +104,8 @@ void proc_server()
 {
   do
   {
+    // store VM Id
+    vm_control->iv_server = vm_id;
     // Wait for start
     printf("Server: Ready.\n");
     do
@@ -119,7 +128,9 @@ void proc_server()
 
 void proc_client()
 {
-  memset((void*)vm_control, 0, sizeof(*vm_control));
+  // memset((void*)vm_control, 0, sizeof(*vm_control));
+  // store VM Id
+  vm_control->iv_server = vm_id;
   do
   {
     // Wait for the peer VM be ready
@@ -202,6 +213,7 @@ int memtest(unsigned int data, int verify)
 int main(int argc, char**argv )
 {
   struct timeval time_start;
+  int res;
 
   printf("Waiting for devices setup...\n");
   sleep(1);
@@ -234,7 +246,14 @@ int main(int argc, char**argv )
   test_pmem = pmem_ptr + sizeof(*vm_control);
   test_mem_size = (pmem_size - sizeof(*vm_control)) / sizeof(int);
   test_mem_size &= ~(sizeof(int) - 1);
-
+  
+  /* get my VM Id */
+  res = ioctl(pmem_fd, IOCTL_READ_IV_POSN, &vm_id);
+  if (res < 0) {
+    printf("IOCTL_READ_IV_POS failed\n");
+    goto exit_close;
+  }
+  printf("My VM id = 0x%x\n", vm_id);
   /* Initialise time stuff */
   cpu_test_time_start = clock();
   gettimeofday(&time_start, NULL);
