@@ -121,7 +121,7 @@ static long kvm_ivshmem_ioctl(struct file * filp,
 	int rv;
 	uint32_t msg;
 
-	KVM_IVSHMEM_DPRINTK("args is 0x%lx", arg);
+	KVM_IVSHMEM_DPRINTK("ioctl: cmd=0x%x args is 0x%lx", cmd, arg);
 	switch (cmd) {
 		case set_sema:
 			KVM_IVSHMEM_DPRINTK("initialize semaphore");
@@ -139,7 +139,7 @@ static long kvm_ivshmem_ioctl(struct file * filp,
 			KVM_IVSHMEM_DPRINTK("ringing sema doorbell");
 			writel(msg, kvm_ivshmem_dev.regs + Doorbell);
 			break;
-		case wait_event:
+		case wait_event: // 3
 			KVM_IVSHMEM_DPRINTK("sleeping on event (cmd = 0x%08x)", cmd);
 			wait_event_interruptible(wait_queue, (event_num == 1));
 			KVM_IVSHMEM_DPRINTK("waking");
@@ -163,6 +163,7 @@ static long kvm_ivshmem_ioctl(struct file * filp,
 			writel(msg, kvm_ivshmem_dev.regs + Doorbell);
 			break;
 		case doorbell: // 8
+			KVM_IVSHMEM_DPRINTK("ringing sema doorbell id=0x%lx on vector 0x%lx", (arg >> 16), (arg & 0xffff));
 			writel(arg, kvm_ivshmem_dev.regs + Doorbell);
 			break;
 		default:

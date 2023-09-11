@@ -16,7 +16,7 @@
 #include <stdlib.h>
 
 #define PMEM_DEVICE "/dev/ivshmem"
-#define IOCTL_WAIT_IRQ     (4)
+#define IOCTL_WAIT_IRQ     (3)
 #define IOCTL_READ_IV_POSN (5)
 #define IOCTL_DOORBELL     (8)
 
@@ -65,6 +65,9 @@ int get_pmem_size()
 int is_server()
 {
   char buf[1024];
+  
+  return 0;
+  
   FILE *f = fopen("/proc/cmdline", "r");
   if (f)
   {
@@ -104,18 +107,10 @@ void proc_server()
 {
   int res;
 
-  vm_control->iv_server = vm_id;
-  /* Signal ready to the client' */
-  // store VM Id
-  // Wait for start
-  printf("Server: Ready. Id = 0x%x\n", vm_id);
+  vm_control->iv_server = vm_id << 16;
+  vm_control->shutdown = 0;
 
-  res = ioctl(pmem_fd, IOCTL_DOORBELL, &vm_control->iv_client);
-  if (res < 0) {
-    printf("%s:%d: IOCTL_DOORBELL failed\n", __FILE__, __LINE__);
-    exit(1);
-  }
-  
+  printf("Server: Ready. Id = 0x%lx\n", (vm_id >> 16));
   do
   {
     #if 0
@@ -140,7 +135,7 @@ void proc_server()
     // Signal that task has been finished
     printf("Server: Task has been finished.\n");
     vm_control->done = DONE;
-    res = ioctl(pmem_fd, IOCTL_DOORBELL, &vm_control->iv_client);
+    res = ioctl(pmem_fd, IOCTL_DOORBELL, vm_control->iv_client);
     if (res < 0) {
       printf("IOCTL_DOORBELL to server failed\n");
       exit(1);
@@ -155,7 +150,7 @@ void proc_client()
   int res;
   // memset((void*)vm_control, 0, sizeof(*vm_control));
   // store VM Id
-  vm_control->iv_client = vm_id;
+  vm_control->iv_client = vm_id << 16;
   // Wait for the server to be ready
   printf("Client: Waiting for the server to be ready.\n");
   res = ioctl(pmem_fd, IOCTL_WAIT_IRQ);
@@ -182,7 +177,7 @@ void proc_client()
     vm_control->done = 0;
     vm_control->start = START;
     #else
-    res = ioctl(pmem_fd, IOCTL_DOORBELL, &vm_control->iv_server);
+    res = ioctl(pmem_fd, IOCTL_DOORBELL, vm_control->iv_server);
     if (res < 0) {
       printf("IOCTL_DOORBELL to server failed\n");
       exit(1);
@@ -305,6 +300,7 @@ int main(int argc, char**argv )
     goto exit_close;
   }
   printf("My VM id = 0x%x\n", vm_id);
+  vm_id = vm_id << 16;
   /* Initialise time stuff */
   cpu_test_time_start = clock();
   gettimeofday(&time_start, NULL);
