@@ -22,9 +22,6 @@
 
 
 #define MB (1048576)
-#define START (0x11111111) 
-#define READY (0x55555555)
-#define DONE  (0x99999999)
 #define TEST_LOOPS (500)
 
 int pmem_fd = -1; 
@@ -41,10 +38,7 @@ struct
 {
   volatile int iv_server;
   volatile int iv_client;
-  volatile int ready;
-  volatile int start;
   volatile int data;
-  volatile int done;
   volatile int shutdown;
 } volatile *vm_control;
 
@@ -105,26 +99,17 @@ void proc_server()
 {
   int res;
 
-  vm_control->iv_server = vm_id << 16;
+  vm_control->iv_server = vm_id;
   vm_control->shutdown = 0;
 
   printf("Server: Ready. Id = 0x%lx\n", (vm_id >> 16));
   do
   {
-    #if 0
-    do
-    {
-      vm_control->ready = READY;
-      usleep(10000);
-    } while(!vm_control->start);
-    vm_control->start = 0;
-    #else
     res = ioctl(pmem_fd, IOCTL_WAIT_IRQ);
     if (res < 0) {
       printf("%s:%d: IOCTL_WAIT_IRQ failed\n", __FILE__, __LINE__);
       exit(1);
     }
-    #endif
 
     // Start received, fill shared memory with random data 
     printf("Server: Start received.\n");
@@ -132,13 +117,11 @@ void proc_server()
 
     // Signal that task has been finished
     printf("Server: Task has been finished.\n");
-    vm_control->done = DONE;
     res = ioctl(pmem_fd, IOCTL_DOORBELL, vm_control->iv_client);
     if (res < 0) {
       printf("IOCTL_DOORBELL to server failed\n");
       exit(1);
     }
-
     
   } while(!vm_control->shutdown);
 }
@@ -152,44 +135,23 @@ void proc_client()
 
   do
   {
-    // Wait for the peer VM be ready
-    // printf("Client: Waiting for the server to be ready.\n");
-    # if 0
-    do
-    {
-      usleep(1000);
-    } while(!vm_control->ready);
-    #endif
-    vm_control->ready = 0;
     printf("Client: Starting the server.\n");
     vm_control->data = rand();
-    #if 0
-    vm_control->done = 0;
-    vm_control->start = START;
-    #else
+
     res = ioctl(pmem_fd, IOCTL_DOORBELL, vm_control->iv_server);
     if (res < 0) {
       printf("IOCTL_DOORBELL to server failed\n");
       exit(1);
     }
-    #endif
 
     // Wait for completion
-    #if 0
-    do 
-    {
-      usleep(1000); // 1ms
-    } while(!vm_control->done);
-    #else
     res = ioctl(pmem_fd, IOCTL_WAIT_IRQ);
     if (res < 0) {
       printf("%s:%d: IOCTL_WAIT_IRQ failed\n", __FILE__, __LINE__);
       exit(1);
     }
-    #endif
-    vm_control->done = 0;
-    printf("Client: task done. Verifying.\n");
 
+    printf("Client: task done. Verifying.\n");
     memtest(vm_control->data, 1);
 
   } while(!vm_control->shutdown);
@@ -275,14 +237,16 @@ int main(int argc, char**argv )
     printf("Got NULL pointer from mmap.\n");
     goto exit_close;
   }
-  printf("shared memory size=%ld addr=%p\n", pmem_size, pmem_ptr);
 
   /* Initialise memory area being tested */
   vm_control = pmem_ptr;
   test_pmem = pmem_ptr + sizeof(*vm_control);
   test_mem_size = (pmem_size - sizeof(*vm_control)) / sizeof(int);
   test_mem_size &= ~(sizeof(int) - 1);
-  
+
+  printf("Shared memory size=%ld addr=%p\n", pmem_size, pmem_ptr);
+  printf("Test memory   size=%ld addr=%p\n", test_mem_size, test_pmem);
+
   /* get my VM Id */
   res = ioctl(pmem_fd, IOCTL_READ_IV_POSN, &vm_id);
   if (res < 0) {
