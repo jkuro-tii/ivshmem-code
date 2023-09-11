@@ -63,7 +63,6 @@ typedef struct kvm_ivshmem_device {
 } kvm_ivshmem_device;
 
 static int event_num;
-static struct semaphore sema;
 static wait_queue_head_t wait_queue;
 
 static kvm_ivshmem_device kvm_ivshmem_dev;
@@ -123,22 +122,6 @@ static long kvm_ivshmem_ioctl(struct file * filp,
 
 	KVM_IVSHMEM_DPRINTK("ioctl: cmd=0x%x args is 0x%lx", cmd, arg);
 	switch (cmd) {
-		case set_sema:
-			KVM_IVSHMEM_DPRINTK("initialize semaphore");
-			KVM_IVSHMEM_DPRINTK("args is 0x%lx", arg);
-			sema_init(&sema, arg);
-			break;
-		case down_sema:
-			KVM_IVSHMEM_DPRINTK("sleeping on semaphore (cmd = 0x%x)", cmd);
-			rv = down_interruptible(&sema);
-			KVM_IVSHMEM_DPRINTK("waking");
-			break;
-		case empty:
-			msg = ((arg & 0xff) << 8) + (cmd & 0xff);
-			KVM_IVSHMEM_DPRINTK("args is 0x%lx", arg);
-			KVM_IVSHMEM_DPRINTK("ringing sema doorbell");
-			writel(msg, kvm_ivshmem_dev.regs + Doorbell);
-			break;
 		case wait_event: // 3
 			KVM_IVSHMEM_DPRINTK("sleeping on event (cmd = 0x%08x)", cmd);
 			wait_event_interruptible(wait_queue, (event_num == 1));
@@ -163,7 +146,7 @@ static long kvm_ivshmem_ioctl(struct file * filp,
 			writel(msg, kvm_ivshmem_dev.regs + Doorbell);
 			break;
 		case doorbell: // 8
-			KVM_IVSHMEM_DPRINTK("ringing sema doorbell id=0x%lx on vector 0x%lx", (arg >> 16), (arg & 0xffff));
+			KVM_IVSHMEM_DPRINTK("ringing doorbell id=0x%lx on vector 0x%lx", (arg >> 16), (arg & 0xffff));
 			writel(arg, kvm_ivshmem_dev.regs + Doorbell);
 			break;
 		default:
@@ -263,14 +246,13 @@ static ssize_t kvm_ivshmem_write(struct file * filp, const char * buffer,
 static irqreturn_t kvm_ivshmem_interrupt (int irq, void *dev_instance)
 {
 	struct kvm_ivshmem_device *dev = dev_instance;
-	u32 status = readl(dev->regs + IntrStatus);
 
 	if (unlikely(dev == NULL)) {
 		KVM_IVSHMEM_DPRINTK("return IRQ_NONE");
 		return IRQ_NONE;
 	}
-	
-	KVM_IVSHMEM_DPRINTK("irq: status = 0x%04x", status);
+
+	KVM_IVSHMEM_DPRINTK("irq.");
 	event_num = 1;
 	wake_up_interruptible(&wait_queue);
 
@@ -370,9 +352,6 @@ static int kvm_ivshmem_probe_device (struct pci_dev *pdev,
 							kvm_ivshmem_dev.reg_size);
 		goto reg_release;
 	}
-
-	/* by default initialize semaphore to 0 */
-	sema_init(&sema, 0);
 
 	init_waitqueue_head(&wait_queue);
 	event_num = 0;
