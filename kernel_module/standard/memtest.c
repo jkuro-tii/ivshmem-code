@@ -65,9 +65,7 @@ int get_pmem_size()
 int is_server()
 {
   char buf[1024];
-  
-  return 0;
-  
+
   FILE *f = fopen("/proc/cmdline", "r");
   if (f)
   {
@@ -150,14 +148,7 @@ void proc_client()
   int res;
   // memset((void*)vm_control, 0, sizeof(*vm_control));
   // store VM Id
-  vm_control->iv_client = vm_id << 16;
-  // Wait for the server to be ready
-  printf("Client: Waiting for the server to be ready.\n");
-  res = ioctl(pmem_fd, IOCTL_WAIT_IRQ);
-  if (res < 0) {
-    printf("%s:%d: IOCTL_WAIT_IRQ failed\n", __FILE__, __LINE__);
-    exit(1);
-  }
+  vm_control->iv_client = vm_id;
 
   do
   {
@@ -170,7 +161,6 @@ void proc_client()
     } while(!vm_control->ready);
     #endif
     vm_control->ready = 0;
-
     printf("Client: Starting the server.\n");
     vm_control->data = rand();
     #if 0
