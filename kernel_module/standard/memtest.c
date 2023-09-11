@@ -102,18 +102,36 @@ void print_report(double cpu_time_s, double real_time_s, long int data_written, 
 
 void proc_server()
 {
+  int res;
+
+  vm_control->iv_server = vm_id;
+  /* Signal ready to the client' */
+  // store VM Id
+  // Wait for start
+  printf("Server: Ready. Id = 0x%x\n", vm_id);
+
+  res = ioctl(pmem_fd, IOCTL_DOORBELL, &vm_control->iv_client);
+  if (res < 0) {
+    printf("%s:%d: IOCTL_DOORBELL failed\n", __FILE__, __LINE__);
+    exit(1);
+  }
+  
   do
   {
-    // store VM Id
-    vm_control->iv_server = vm_id;
-    // Wait for start
-    printf("Server: Ready.\n");
+    #if 0
     do
     {
       vm_control->ready = READY;
       usleep(10000);
     } while(!vm_control->start);
     vm_control->start = 0;
+    #else
+    res = ioctl(pmem_fd, IOCTL_WAIT_IRQ);
+    if (res < 0) {
+      printf("%s:%d: IOCTL_WAIT_IRQ failed\n", __FILE__, __LINE__);
+      exit(1);
+    }
+    #endif
 
     // Start received, fill shared memory with random data 
     printf("Server: Start received.\n");
@@ -122,35 +140,68 @@ void proc_server()
     // Signal that task has been finished
     printf("Server: Task has been finished.\n");
     vm_control->done = DONE;
+    res = ioctl(pmem_fd, IOCTL_DOORBELL, &vm_control->iv_client);
+    if (res < 0) {
+      printf("IOCTL_DOORBELL to server failed\n");
+      exit(1);
+    }
 
+    
   } while(!vm_control->shutdown);
 }
 
 void proc_client()
 {
+  int res;
   // memset((void*)vm_control, 0, sizeof(*vm_control));
   // store VM Id
-  vm_control->iv_server = vm_id;
+  vm_control->iv_client = vm_id;
+  // Wait for the server to be ready
+  printf("Client: Waiting for the server to be ready.\n");
+  res = ioctl(pmem_fd, IOCTL_WAIT_IRQ);
+  if (res < 0) {
+    printf("%s:%d: IOCTL_WAIT_IRQ failed\n", __FILE__, __LINE__);
+    exit(1);
+  }
+
   do
   {
     // Wait for the peer VM be ready
-    printf("Client: Waiting for the server to be ready.\n");
+    // printf("Client: Waiting for the server to be ready.\n");
+    # if 0
     do
     {
       usleep(1000);
     } while(!vm_control->ready);
+    #endif
     vm_control->ready = 0;
 
     printf("Client: Starting the server.\n");
-    vm_control->done = 0;
     vm_control->data = rand();
+    #if 0
+    vm_control->done = 0;
     vm_control->start = START;
+    #else
+    res = ioctl(pmem_fd, IOCTL_DOORBELL, &vm_control->iv_server);
+    if (res < 0) {
+      printf("IOCTL_DOORBELL to server failed\n");
+      exit(1);
+    }
+    #endif
 
     // Wait for completion
+    #if 0
     do 
     {
       usleep(1000); // 1ms
     } while(!vm_control->done);
+    #else
+    res = ioctl(pmem_fd, IOCTL_WAIT_IRQ);
+    if (res < 0) {
+      printf("%s:%d: IOCTL_WAIT_IRQ failed\n", __FILE__, __LINE__);
+      exit(1);
+    }
+    #endif
     vm_control->done = 0;
     printf("Client: task done. Verifying.\n");
 

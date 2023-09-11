@@ -481,6 +481,7 @@ static int kvm_ivshmem_open(struct inode * inode, struct file * filp)
 	  return -ENODEV;
    }
 #endif
+    event_num = 0;
     KVM_IVSHMEM_DPRINTK("Open OK");
     return 0;
 }
