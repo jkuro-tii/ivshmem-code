@@ -217,6 +217,10 @@ static loff_t kvm_ivshmem_lseek(struct file * filp, loff_t offset, int origin)
 				offset = kvm_ivshmem_dev.ioaddr_size;
 			}
 			filp->f_pos = offset;
+			break;
+		case SEEK_END:
+			retval = kvm_ivshmem_dev.ioaddr_size;
+			filp->f_pos = kvm_ivshmem_dev.ioaddr_size;
 	}
 
 	return retval;
@@ -501,8 +505,8 @@ static int kvm_ivshmem_mmap(struct file *filp, struct vm_area_struct * vma)
 	len=PAGE_ALIGN((start & ~PAGE_MASK) + kvm_ivshmem_dev.ioaddr_size);
 	start &= PAGE_MASK;
 
-	printk(KERN_INFO "KVM_IVSHMEM: %lu - %lu + %lu",vma->vm_end ,vma->vm_start, off);
-	printk(KERN_INFO "KVM_IVSHMEM: %lu > %lu",(vma->vm_end - vma->vm_start + off), len);
+	printk(KERN_INFO "KVM_IVSHMEM: mmap: vma->vm_end=0x%lx..vma->vm_start=0x%lx off=0x%lx", vma->vm_end, vma->vm_start, off);
+	printk(KERN_INFO "KVM_IVSHMEM: mmap: vma->vm_end - vma->vm_start + off=0x%lx > len=0x%lx",(vma->vm_end - vma->vm_start + off), len);
 
 	if ((vma->vm_end - vma->vm_start + off) > len) {
 		// unlock_kernel();
