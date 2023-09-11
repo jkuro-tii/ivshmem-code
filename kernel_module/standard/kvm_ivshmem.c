@@ -262,36 +262,19 @@ static ssize_t kvm_ivshmem_write(struct file * filp, const char * buffer,
 
 static irqreturn_t kvm_ivshmem_interrupt (int irq, void *dev_instance)
 {
-    struct kvm_ivshmem_device * dev = dev_instance;
-    u32 status;
+	struct kvm_ivshmem_device *dev = dev_instance;
+	u32 status = readl(dev->regs + IntrStatus);
 
-    printk(KERN_INFO "KVM_IVSHMEM: interrupt!");
-
-    if (unlikely(dev == NULL)) {
-	KVM_IVSHMEM_DPRINTK("return IRQ_NONE");
-	return IRQ_NONE;
-    }
-    // TODO: Temporary hack
-    status = wait_event_irq;
-    // status = readl(dev->regs + IntrStatus);
-    KVM_IVSHMEM_DPRINTK("irq ignored: status = 0x%04x", status);
-    if (!status || (status == 0xFFFFFFFF))
-	return IRQ_NONE;
-
-    /* depending on the message we wake different structures */
-    if (status == sema_irq) {
-	KVM_IVSHMEM_DPRINTK("status = sema_irq up(&sema)");
-	up(&sema);
-    } else if (status == wait_event_irq) {
-	KVM_IVSHMEM_DPRINTK("status = wait_event_irq wake_up_interruptible(&wait_queue)");
+	if (unlikely(dev == NULL)) {
+		KVM_IVSHMEM_DPRINTK("return IRQ_NONE");
+		return IRQ_NONE;
+	}
+	
+	KVM_IVSHMEM_DPRINTK("irq: status = 0x%04x", status);
 	event_num = 1;
 	wake_up_interruptible(&wait_queue);
-    }
 
-    printk(KERN_INFO "KVM_IVSHMEM: interrupt (status = 0x%04x)",
-	   status);
-
-    return IRQ_HANDLED;
+	return IRQ_HANDLED;
 }
 
 static int request_msix_vectors(struct kvm_ivshmem_device *ivs_info, int nvectors)
