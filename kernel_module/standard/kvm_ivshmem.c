@@ -470,13 +470,13 @@ error:
 static int kvm_ivshmem_open(struct inode * inode, struct file * filp)
 {
     printk(KERN_INFO "KVM_IVSHMEM: Opening kvm_ivshmem device");
-/*
+#if 0
    if (MINOR(inode->i_rdev) != KVM_IVSHMEM_DEVICE_MINOR_NUM) {
 	  printk(KERN_INFO "KVM_IVSHMEM: minor number is %d", KVM_IVSHMEM_DEVICE_MINOR_NUM);
 	  return -ENODEV;
-   }*/
+   }
+#endif
     KVM_IVSHMEM_DPRINTK("Open OK");
-
     return 0;
 }
 
