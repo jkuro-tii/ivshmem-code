@@ -15,7 +15,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define PMEM_DEVICE "/dev/pmem_char"
+#define PMEM_DEVICE "/dev/ivshmem"
 
 #define MB (1048576)
 #define START (0x11111111) 
