@@ -83,7 +83,7 @@ void hexdump(volatile void *mem, int size)
   printf("\n");
 }
 
-void print_report(double cpu_time_s, double real_time_s, long int data_written, long int data_read)
+void print_report(double cpu_time_s, double real_time_s, long int data_written, long int data_read, long int int_counter)
 {
   cpu_time_s /= 1000.0;
   real_time_s /= 1000.0;
@@ -93,6 +93,7 @@ void print_report(double cpu_time_s, double real_time_s, long int data_written, 
   printf("I/O rate: read: %.2f MB/s write: %.2f MB/s R&W: %.2f MB/s        Total I/O in realtime: %.2f MB/s\n",
     (double)data_read/MB/cpu_time_s, (double)data_written/MB/cpu_time_s, (double)(data_read+data_written)/MB/cpu_time_s, 
     (double)(data_read+data_written)/MB/real_time_s);
+  printf("Interrupts per second: CPU time: %.2f realtime %.2f\n", (double)int_counter/cpu_time_s, (double)int_counter/real_time_s);
 }
 
 void proc_server()
@@ -160,12 +161,13 @@ void proc_client()
 
 int memtest(unsigned int data, int verify)
 {
-  static long int read_counter = 0, write_counter = 0;
+  static long int read_counter = 0, write_counter = 0, int_counter = 0;
   int ret_val = 0;
   struct timeval current_time;
   static double cpu_time_ms = 0.0;
   double real_time_ms;
 
+  int_counter++;
   if(!verify) 
   {
     for(int i = 0; i < TEST_LOOPS; i++)
@@ -198,13 +200,13 @@ int memtest(unsigned int data, int verify)
   }
 
   exit:
-    printf("read_counter=%ld write_counter=%ld\n", read_counter, write_counter);
+    printf("read_counter=%ld write_counter=%ld int_counter=%ld\n", read_counter, write_counter, int_counter);
 
     cpu_time_ms = (double)(clock() - cpu_test_time_start) / CLOCKS_PER_SEC * 1000;
     gettimeofday(&current_time, NULL);
     real_time_ms = 1000.0*current_time.tv_sec + (double)current_time.tv_usec/1000.0 - real_time_start_msec;
 
-    print_report(cpu_time_ms, real_time_ms, write_counter*sizeof(int), read_counter*sizeof(int));
+    print_report(cpu_time_ms, real_time_ms, write_counter*sizeof(int), read_counter*sizeof(int), int_counter);
   return ret_val;
 }
 
@@ -243,6 +245,7 @@ int main(int argc, char**argv )
   test_pmem = pmem_ptr + sizeof(*vm_control);
   test_mem_size = (pmem_size - sizeof(*vm_control)) / sizeof(int);
   test_mem_size &= ~(sizeof(int) - 1);
+  test_mem_size = 16; // TODO: temporary hack
 
   printf("Shared memory size=%ld addr=%p\n", pmem_size, pmem_ptr);
   printf("Test memory   size=%ld addr=%p\n", test_mem_size, test_pmem);
