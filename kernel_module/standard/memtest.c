@@ -200,12 +200,12 @@ int memtest(unsigned int data, int verify)
   }
 
   exit:
-    if (++report_counter % 1000) {
+    if (++report_counter % 50000) {
       return ret_val;
     }
 
     report_counter = 0;
-    
+
     printf("read_counter=%ld write_counter=%ld int_counter=%ld\n", read_counter, write_counter, int_counter);
 
     cpu_time_ms = (double)(clock() - cpu_test_time_start) / CLOCKS_PER_SEC * 1000;
