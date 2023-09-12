@@ -59,7 +59,6 @@ typedef struct kvm_ivshmem_device {
 	struct msix_entry *msix_entries;
 	int nvectors;
 	
-	bool opened;
 } kvm_ivshmem_device;
 
 static int event_num;
@@ -163,7 +162,6 @@ static ssize_t kvm_ivshmem_read(struct file * filp, char * buffer, size_t len,
 	int bytes_read = 0;
 	unsigned long offset;
 
-//	KVM_IVSHMEM_DPRINTK("kvm_ivshmem_read");
 	offset = *poffset;
 
 	if (!kvm_ivshmem_dev.base_addr) {
@@ -219,7 +217,7 @@ static ssize_t kvm_ivshmem_write(struct file * filp, const char * buffer,
 
 	offset = *poffset;
 
-	printk(KERN_INFO "KVM_IVSHMEM: trying to write");
+	KVM_IVSHMEM_DPRINTK("KVM_IVSHMEM: trying to write");
 	if (!kvm_ivshmem_dev.base_addr) {
 		printk(KERN_ERR "KVM_IVSHMEM: cannot write to ioaddr (NULL)");
 		return 0;
@@ -229,7 +227,7 @@ static ssize_t kvm_ivshmem_write(struct file * filp, const char * buffer,
 		len = kvm_ivshmem_dev.ioaddr_size - offset;
 	}
 
-	printk(KERN_INFO "KVM_IVSHMEM: len is %u", (unsigned) len);
+	KVM_IVSHMEM_DPRINTK("KVM_IVSHMEM: len is %u", (unsigned) len);
 	if (len == 0) return 0;
 
 	bytes_written = copy_from_user(kvm_ivshmem_dev.base_addr+offset,
@@ -238,7 +236,7 @@ static ssize_t kvm_ivshmem_write(struct file * filp, const char * buffer,
 		return -EFAULT;
 	}
 
-	printk(KERN_INFO "KVM_IVSHMEM: wrote %u bytes at offset %lu", (unsigned) len, offset);
+	KVM_IVSHMEM_DPRINTK("KVM_IVSHMEM: wrote %u bytes at offset %lu", (unsigned) len, offset);
 	*poffset += len;
 	return len;
 }
@@ -252,7 +250,7 @@ static irqreturn_t kvm_ivshmem_interrupt (int irq, void *dev_instance)
 		return IRQ_NONE;
 	}
 
-	KVM_IVSHMEM_DPRINTK("irq.");
+	KVM_IVSHMEM_DPRINTK("irq");
 	event_num = 1;
 	wake_up_interruptible(&wait_queue);
 
@@ -438,12 +436,6 @@ error:
 static int kvm_ivshmem_open(struct inode * inode, struct file * filp)
 {
     printk(KERN_INFO "KVM_IVSHMEM: Opening kvm_ivshmem device");
-#if 0
-   if (MINOR(inode->i_rdev) != KVM_IVSHMEM_DEVICE_MINOR_NUM) {
-	  printk(KERN_INFO "KVM_IVSHMEM: minor number is %d", KVM_IVSHMEM_DEVICE_MINOR_NUM);
-	  return -ENODEV;
-   }
-#endif
     event_num = 0;
     KVM_IVSHMEM_DPRINTK("Open OK");
     return 0;
@@ -470,7 +462,7 @@ static int kvm_ivshmem_mmap(struct file *filp, struct vm_area_struct * vma)
 	len=PAGE_ALIGN((start & ~PAGE_MASK) + kvm_ivshmem_dev.ioaddr_size);
 	start &= PAGE_MASK;
 
-	printk(KERN_INFO "KVM_IVSHMEM: mmap: vma->vm_end=0x%lx..vma->vm_start=0x%lx off=0x%lx", vma->vm_end, vma->vm_start, off);
+	printk(KERN_INFO "KVM_IVSHMEM: mmap: vma->vm_start=0x%lx..vma->vm_end=0x%lx off=0x%lx", vma->vm_start, vma->vm_end, off);
 	printk(KERN_INFO "KVM_IVSHMEM: mmap: vma->vm_end - vma->vm_start + off=0x%lx > len=0x%lx",(vma->vm_end - vma->vm_start + off), len);
 
 	if ((vma->vm_end - vma->vm_start + off) > len) {
@@ -481,7 +473,7 @@ static int kvm_ivshmem_mmap(struct file *filp, struct vm_area_struct * vma)
 	off += start;
 	vma->vm_pgoff = off >> PAGE_SHIFT;
 
-	vma->vm_flags |= VM_SHARED/*|VM_RESERVED*/;
+	vma->vm_flags |= VM_SHARED;
 
 	if(io_remap_pfn_range(vma, vma->vm_start,
 		off >> PAGE_SHIFT, vma->vm_end - vma->vm_start,
