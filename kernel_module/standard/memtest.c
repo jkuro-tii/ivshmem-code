@@ -161,7 +161,7 @@ void proc_client()
 
 int memtest(unsigned int data, int verify)
 {
-  static long int read_counter = 0, write_counter = 0, int_counter = 0;
+  static long int read_counter = 0, write_counter = 0, int_counter = 0, report_counter = 0;
   int ret_val = 0;
   struct timeval current_time;
   static double cpu_time_ms = 0.0;
@@ -200,6 +200,12 @@ int memtest(unsigned int data, int verify)
   }
 
   exit:
+    if (++report_counter % 1000) {
+      return ret_val;
+    }
+
+    report_counter = 0;
+    
     printf("read_counter=%ld write_counter=%ld int_counter=%ld\n", read_counter, write_counter, int_counter);
 
     cpu_time_ms = (double)(clock() - cpu_test_time_start) / CLOCKS_PER_SEC * 1000;
