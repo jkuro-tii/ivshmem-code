@@ -141,7 +141,9 @@ void proc_client()
 
   do
   {
+    #ifdef DEBUG
     printf("Client: Starting the server.\n");
+    #endif
     vm_control->data = rand();
 
     res = ioctl(pmem_fd, IOCTL_DOORBELL, vm_control->iv_server);
