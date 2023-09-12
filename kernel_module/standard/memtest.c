@@ -20,6 +20,7 @@
 #define IOCTL_READ_IV_POSN (5)
 #define IOCTL_DOORBELL     (8)
 
+//#define DEBUG
 
 #define MB (1048576)
 #define TEST_LOOPS (500)
@@ -113,11 +114,15 @@ void proc_server()
     }
 
     // Start received, fill shared memory with random data 
+    #ifdef DEBUG
     printf("Server: Start received.\n");
+    #endif
     memtest(vm_control->data, 0);
 
     // Signal that task has been finished
+    #ifdef DEBUG
     printf("Server: Task has been finished.\n");
+    #endif
     res = ioctl(pmem_fd, IOCTL_DOORBELL, vm_control->iv_client);
     if (res < 0) {
       printf("IOCTL_DOORBELL to server failed\n");
@@ -152,7 +157,9 @@ void proc_client()
       exit(1);
     }
 
+    #ifdef DEBUG
     printf("Client: task done. Verifying.\n");
+    #endif
     memtest(vm_control->data, 1);
 
   } while(!vm_control->shutdown);
